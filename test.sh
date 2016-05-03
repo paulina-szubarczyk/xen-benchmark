@@ -12,28 +12,26 @@ function get_iodepth_from_load {
 	done
 }
 
-# Defaults for the original iometer jobfile
-LOAD=${1-linear}
-SIZE=${2-4g}
+function warm_up {
+    echo "warm up filename $FILENAME runtime $WARMUP_RUNTIME"
+    fio --time_based \
+	    --clocksource=clock_gettime \
+	    --rw=randread \
+	    --random_distribution=pareto:0.9 \
+	    --size=10g \
+	    --filename=/dev/ram0 \
+	    --iodepth=$IODEPTH \
+	    --size=$SIZE \
+	    --bs='8k' \
+	    --name='throw_away' \
+	    --runtime=$RUNTIME > $FILENAME
+}
 
-IODEPTH=$(get_iodepth_from_load $LOAD)
-echo "Running with $LOAD load (iodepth $IODEPTH) and size $SIZE"
+function test_with_block_size {
 
-fio --time_based \
-	--clocksource=clock_gettime \
-	--rw=randread \
-	--random_distribution=pareto:0.9 \
-	--size=10g \
-	--filename=/dev/ram0 \
-	--iodepth=$IODEPTH \
-	--size=$SIZE \
-	--bs='8k' \
-	--name='throw_away' \
-	--runtime=300
-
-for (( i = 0; i < ${#bs[@]}; i++ )); do
-	BS=${bs[$i]}
-	NAME=test${bs[$i]}
+    BS=$1
+	NAME=test"$1"
+    echo "block size $BS test name $NAME filename $FILENAME runtime $RUNTIME"
 	fio --time_based \
 		--clocksource=clock_gettime \
 		--rw=randread \
@@ -44,5 +42,52 @@ for (( i = 0; i < ${#bs[@]}; i++ )); do
 		--size=$SIZE \
 		--bs=$BS \
 		--name=$NAME \
-		--runtime=60
+		--runtime=$RUNTIME >> $FILENAME
+}
+
+function format {
+
+    cat $FILENAME | grep ' lat (usec):' | grep -o 'avg= *[0-9]*.[0-9]*' > $LATENCY
+    cat $FILENAME | grep -o 'aggrb=[0-9]*.[0-9]*[K,M]B' > $BANDWITH
+    cat $FILENAME | grep -o 'READ: io=[0-9]*.[0-9]*[K,M]B' > $IO
+    cat $FILENAME | grep -o 'iops=[0-9]*' > $IOPS
+
+    sed -i 's/avg=//g' $LATENCY
+    sed -i 's/aggrb=//g' $BANDWITH
+    sed -i 's/MB//g' $BANDWITH
+    sed -i 's/READ: io=//g' $IO
+    sed -i 's/MB//g' $IO
+    sed -i 's/iops=//g' $IOPS
+    
+    sed -i '1d' $LATENCY
+    sed -i '1d' $BANDWITH
+    sed -i '1d' $IO
+    sed -i '1d' $IOPS
+}
+
+# Defaults for the original iometer jobfile
+
+LOAD=${1-linear}
+SIZE=${2-4g}
+IODEPTH=$(get_iodepth_from_load $LOAD)
+echo "Running with $LOAD load (iodepth $IODEPTH) and size $SIZE"
+
+DIR='results/'$(date +%s)$RANDOM
+FILENAME=$DIR'/dom0'
+LATENCY=$FILENAME'_latency'
+BANDWITH=$FILENAME'_bandw'
+IO=$FILENAME'_io'
+IOPS=$FILENAME'_iops'
+echo "write to $FILENAME, $LATENCY, $BANDWITH, $IO, $IOPS"
+
+mkdir "$DIR"
+
+WARMUP_RUNTIME=200
+RUNTIME=60
+warm_up
+
+for (( i = 0; i < ${#bs[@]}; i++ )); do
+    test_with_block_size ${bs[$i]}
 done
+
+format 
