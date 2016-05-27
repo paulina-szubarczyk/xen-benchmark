@@ -23,7 +23,7 @@ function warm_up {
 	    --size=$SIZE \
 	    --bs='4k' \
 	    --name='throw_away' \
-	    --runtime=$RUNTIME > $FILENAME
+	    --runtime=$WARMUP_RUNTIME > $FILENAME
 }
 
 function test_with_block_size {
@@ -63,7 +63,7 @@ function format {
 }
 
 # Defaults for the original iometer jobfile
-DEV="/dev/xvda"
+DEV="/dev/hdd"
 
 LOAD=${1-moderate}
 SIZE=${2-4g}
@@ -71,7 +71,7 @@ IODEPTH=$(get_iodepth_from_load $LOAD)
 echo "Running with $LOAD load (iodepth $IODEPTH) and size $SIZE"
 
 DIR='results/'$(date +%s)$RANDOM'_'$IODEPTH
-FILENAME=$DIR'/suse'
+FILENAME=$DIR'/suse1CPU'
 LATENCY=$FILENAME'_latency'
 BANDWITH=$FILENAME'_bandw'
 IO=$FILENAME'_io'
@@ -80,12 +80,10 @@ echo "write to $FILENAME, $LATENCY, $BANDWITH, $IO, $IOPS"
 
 mkdir "$DIR"
 
-WARMUP_RUNTIME=300
+WARMUP_RUNTIME=200
 RUNTIME=60
 warm_up
 
-for (( i = 0; i < ${#bs[@]}; i++ )); do
-    test_with_block_size ${bs[$i]}
-done
+test_with_block_size '4k'
 
-format 
+format
