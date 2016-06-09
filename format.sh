@@ -3,15 +3,17 @@
 declare -a iodepths=('1' '4' '8' '64' '256')
 declare -a format=('latency' 'iops' 'bandw')
 
+DIR=results_new
+
 for (( f=0; f < ${#format[@]}; f++ )); do
-	RESULT=results/${format[f]}
+	RESULT=$DIR/${format[f]}
 	
 	echo "" > $RESULT
 	for (( i=0; i < ${#iodepths[@]}; i++ )); do
-		FILENAME=results/${iodepths[i]}_${format[f]}
-		RESULTS=results/iodepth_${iodepths[i]}
+		FILENAME=$DIR/${iodepths[i]}_${format[f]}
+		RESULTS=$DIR/iodepth_${iodepths[i]}
 		RESULTS_NAME="iodepth="${iodepths[i]}
-		ls results/*_${iodepths[i]}/*_${format[f]} > $FILENAME
+		ls $DIR/*_${iodepths[i]}/*_${format[f]} > $FILENAME
 		./collapse $FILENAME $RESULTS ${format[f]}
 		rm $FILENAME
 		echo $RESULTS_NAME >> $RESULT
