@@ -4,7 +4,7 @@ declare -a iodepths=('1' '4' '8' '64' '256')
 declare -a bs=('512' '1k' '2k' '4k' '8k' '16k' '32k' '64k' '128k' '256k' '512k' '1024k' '2048k' '4096k')  
 
 function warm_up {
-    echo "warm up filename $FILENAME runtime $WARMUP_RUNTIME iodepth $IODEPTH"
+    echo "warm up runtime $WARMUP_RUNTIME iodepth $IODEPTH"
     fio --time_based \
 	    --clocksource=clock_gettime \
 	    --rw=randread \
@@ -16,13 +16,17 @@ function warm_up {
 	    --iodepth=$IODEPTH \
 	    --bs='8k' \
 	    --name='throw_away' \
-	    --runtime=$RUNTIME > $FILENAME
+	    --runtime=$WARMUP_RUNTIME >> $FILENAME
 }
 
 function test_with_block_size {
 
     BS=$1
-	NAME=test"$1"
+    NAME=test"$1"
+    VMSTAT=$FILENAME'_vmstat_'"$1"
+    vmstat 1 > $VMSTAT &
+    PID=`eval pidof vmstat`
+    echo "vmstat started with pid $PID"
     echo "block size $BS test name $NAME filename $FILENAME runtime $RUNTIME iodepth $IODEPTH"
     fio --time_based \
 		--clocksource=clock_gettime \
@@ -36,6 +40,7 @@ function test_with_block_size {
 		--bs=$BS \
 		--name=$NAME \
 		--runtime=$RUNTIME >> $FILENAME
+    kill -9 $PID
 }
 
 function format {
@@ -55,18 +60,18 @@ function format {
 }
 
 # Defaults for the original iometer jobfile
-DEV="/dev/xvda"
+DEV="/dev/nullb0"
 
 WARMUP_RUNTIME=300
-RUNTIME=60
+RUNTIME=30
+
 
 for (( j = 0; j < ${#iodepths[@]}; j++)); do
     IODEPTH=${iodepths[j]}
     DIR='results/'$(date +%s)$RANDOM'_'$IODEPTH
-    FILENAME=$DIR'/suse_grant_copy_with_buf'
+    FILENAME=$DIR'/dom0'
     LATENCY=$FILENAME'_latency'
     BANDWITH=$FILENAME'_bandw'
-    IO=$FILENAME'_io'
     IOPS=$FILENAME'_iops'
     echo "write to $FILENAME, $LATENCY, $BANDWITH, $IO, $IOPS"
 
